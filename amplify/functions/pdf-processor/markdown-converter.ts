@@ -1,12 +1,24 @@
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
 
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Configure markdown-it with syntax highlighting
-const md = new MarkdownIt({
+const md: MarkdownIt = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-  highlight: (str: string, lang: string) => {
+  highlight: (str: string, lang: string): string => {
     if (lang && hljs.getLanguage(lang)) {
       try {
         return '<pre class="hljs"><code>' +
@@ -16,7 +28,7 @@ const md = new MarkdownIt({
         // Fall through to default
       }
     }
-    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+    return '<pre class="hljs"><code>' + escapeHtml(str) + '</code></pre>';
   },
 });
 
