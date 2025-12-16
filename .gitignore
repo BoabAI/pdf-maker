@@ -41,6 +41,9 @@ amplify_outputs.json
 .amplify/
 amplifyconfiguration.json
 
+# Lambda Layers (downloaded during CI/CD)
+amplify/layers/chromium/chromium-layer.zip
+
 # Bun
 bun.lockb
 

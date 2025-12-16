@@ -1,11 +1,14 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { S3Event, Handler } from 'aws-lambda';
-import chromium from '@sparticuz/chromium';
+import chromium from '@sparticuz/chromium-min';
 import puppeteer from 'puppeteer-core';
 import { convertMarkdownToHtml, extractMetadata } from './markdown-converter';
 import { buildFullHtml, buildFooterTemplate, buildPdfFilename } from './styles/smec-ai';
 
 const s3 = new S3Client({});
+
+// Path to chromium binary directory in Lambda Layer
+const CHROMIUM_LAYER_PATH = '/opt/nodejs/node_modules/@sparticuz/chromium/bin';
 
 /**
  * Update processing status in S3
@@ -73,11 +76,11 @@ export const handler: Handler<S3Event> = async (event) => {
     const htmlContent = convertMarkdownToHtml(markdownContent);
     const fullHtml = buildFullHtml(htmlContent, metadata);
 
-    // Launch browser
+    // Launch browser with chromium from Lambda Layer
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_LAYER_PATH),
       headless: chromium.headless,
     });
 
