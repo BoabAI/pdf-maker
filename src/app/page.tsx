@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Amplify } from 'aws-amplify';
 import { uploadData, downloadData, getUrl } from 'aws-amplify/storage';
-import '@aws-amplify/ui-react/styles.css';
 
 import MarkdownUploader from '@/components/MarkdownUploader';
 import MarkdownEditor from '@/components/MarkdownEditor';
@@ -15,6 +14,26 @@ type ConversionState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Logo SVG Component with pastel colors
+function Logo() {
+  return (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Document base */}
+      <rect x="8" y="4" width="32" height="40" rx="4" fill="#EDE9FE" stroke="#A78BFA" strokeWidth="2"/>
+      {/* Folded corner */}
+      <path d="M32 4V12H40" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M32 4L40 12V8C40 5.79086 38.2091 4 36 4H32Z" fill="#DDD6FE"/>
+      {/* Lines representing text */}
+      <rect x="14" y="18" width="20" height="3" rx="1.5" fill="#A78BFA"/>
+      <rect x="14" y="25" width="16" height="3" rx="1.5" fill="#C4B5FD"/>
+      <rect x="14" y="32" width="18" height="3" rx="1.5" fill="#C4B5FD"/>
+      {/* PDF badge */}
+      <circle cx="38" cy="38" r="8" fill="#8B5CF6"/>
+      <text x="38" y="41" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="sans-serif">PDF</text>
+    </svg>
+  );
+}
 
 export default function Home() {
   const [inputMode, setInputMode] = useState<InputMode>('upload');
@@ -69,21 +88,15 @@ export default function Home() {
   }, [statusKey, conversionState]);
 
   const validateInput = useCallback((content: string, fileObj: File | null): string | null => {
-    // Check if content is provided
     if (!content.trim()) {
       return 'No markdown content provided';
     }
-
-    // Check file size
     if (fileObj && fileObj.size > MAX_FILE_SIZE) {
       return `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`;
     }
-
-    // Check content length
     if (content.length > MAX_FILE_SIZE) {
       return `Content too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`;
     }
-
     return null;
   }, []);
 
@@ -99,20 +112,17 @@ export default function Home() {
         ? await file.text()
         : markdownContent;
 
-      // Validate input
       const validationError = validateInput(content, file);
       if (validationError) {
         throw new Error(validationError);
       }
 
-      // Upload markdown to S3 (simplified path without identity ID)
       const uploadKey = `uploads/${filename}`;
       await uploadData({
         path: uploadKey,
         data: new Blob([content], { type: 'text/markdown' }),
       });
 
-      // Set status key for polling
       const statusKeyPath = `status/${filename.replace('.md', '.json')}`;
       setStatusKey(statusKeyPath);
       setConversionState('processing');
@@ -132,101 +142,129 @@ export default function Home() {
     setStatusKey(null);
   };
 
-  // Show loading while configuring
+  // Loading state
   if (!isConfigured) {
     return (
-      <main className="container mx-auto max-w-4xl p-6 flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-violet-200 border-t-violet-500" />
       </main>
     );
   }
 
   return (
-    <main className="container mx-auto max-w-4xl p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-purple-700">
-          PDF Maker
-        </h1>
-      </header>
+    <main className="min-h-screen py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Header with Logo */}
+        <header className="text-center mb-10">
+          <div className="inline-flex items-center justify-center gap-3 mb-3">
+            <Logo />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+              PDF Maker
+            </h1>
+          </div>
+          <p className="text-gray-500 text-sm">
+            Transform your markdown into beautifully styled PDFs
+          </p>
+        </header>
 
-      <div className="bg-white rounded-lg shadow-lg p-8">
-        {conversionState === 'idle' && (
-          <>
-            {/* Input Mode Toggle */}
-            <div className="flex gap-4 mb-6">
+        {/* Main Card */}
+        <div className="glass-card rounded-2xl shadow-xl shadow-violet-100/50 p-8">
+          {conversionState === 'idle' && (
+            <>
+              {/* Input Mode Toggle */}
+              <div className="flex gap-2 mb-6 p-1 bg-violet-50 rounded-xl">
+                <button
+                  onClick={() => setInputMode('upload')}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 ${
+                    inputMode === 'upload'
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-violet-600'
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload File
+                  </span>
+                </button>
+                <button
+                  onClick={() => setInputMode('paste')}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 ${
+                    inputMode === 'paste'
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-violet-600'
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Paste Text
+                  </span>
+                </button>
+              </div>
+
+              {/* Input Components */}
+              {inputMode === 'upload' ? (
+                <MarkdownUploader file={file} onFileSelect={setFile} />
+              ) : (
+                <MarkdownEditor
+                  content={markdownContent}
+                  onChange={setMarkdownContent}
+                />
+              )}
+
+              {/* Convert Button */}
               <button
-                onClick={() => setInputMode('upload')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  inputMode === 'upload'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                onClick={handleConvert}
+                disabled={
+                  (inputMode === 'upload' && !file) ||
+                  (inputMode === 'paste' && !markdownContent.trim())
+                }
+                className="w-full mt-6 py-3.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-violet-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-200"
               >
-                Upload File
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Convert to PDF
+                </span>
               </button>
-              <button
-                onClick={() => setInputMode('paste')}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  inputMode === 'paste'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Paste Text
-              </button>
-            </div>
+            </>
+          )}
 
-            {/* Input Components */}
-            {inputMode === 'upload' ? (
-              <MarkdownUploader file={file} onFileSelect={setFile} />
-            ) : (
-              <MarkdownEditor
-                content={markdownContent}
-                onChange={setMarkdownContent}
-              />
-            )}
+          {/* Status Display */}
+          {conversionState !== 'idle' && conversionState !== 'complete' && (
+            <ConversionStatus
+              state={conversionState}
+              error={error || undefined}
+            />
+          )}
 
-            {/* Convert Button */}
+          {/* Download Button */}
+          {conversionState === 'complete' && pdfUrl && (
+            <PdfDownloader url={pdfUrl} onReset={handleReset} />
+          )}
+
+          {/* Error Reset */}
+          {conversionState === 'error' && (
             <button
-              onClick={handleConvert}
-              disabled={
-                (inputMode === 'upload' && !file) ||
-                (inputMode === 'paste' && !markdownContent.trim())
-              }
-              className="w-full mt-6 py-3 bg-purple-600 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition"
+              onClick={handleReset}
+              className="w-full mt-4 py-3 bg-violet-50 text-violet-700 rounded-xl font-medium hover:bg-violet-100 transition-colors"
             >
-              Convert to PDF
+              Try Again
             </button>
-          </>
-        )}
+          )}
+        </div>
 
-        {/* Status Display */}
-        {conversionState !== 'idle' && conversionState !== 'complete' && (
-          <ConversionStatus
-            state={conversionState}
-            error={error || undefined}
-          />
-        )}
-
-        {/* Download Button */}
-        {conversionState === 'complete' && pdfUrl && (
-          <PdfDownloader url={pdfUrl} onReset={handleReset} />
-        )}
-
-        {/* Error Reset */}
-        {conversionState === 'error' && (
-          <button
-            onClick={handleReset}
-            className="w-full mt-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-          >
-            Try Again
-          </button>
-        )}
+        {/* Footer */}
+        <footer className="mt-8 text-center">
+          <p className="text-sm text-gray-400">
+            Powered by <span className="font-medium text-violet-500">SMEC AI</span>
+          </p>
+        </footer>
       </div>
-
-      <footer className="mt-8 text-center text-sm text-gray-500">
-        <p>Powered by SMEC AI &bull; Secure Markdown to PDF Conversion</p>
-      </footer>
     </main>
   );
 }

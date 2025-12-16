@@ -1,4 +1,5 @@
 import { defineBackend } from '@aws-amplify/backend';
+import { auth } from './auth/resource';
 import { storage } from './storage/resource';
 import { pdfProcessor } from './functions/pdf-processor/resource';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -6,6 +7,7 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import { Duration } from 'aws-cdk-lib';
 
 const backend = defineBackend({
+  auth,
   storage,
   pdfProcessor,
 });

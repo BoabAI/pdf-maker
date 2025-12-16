@@ -272,7 +272,6 @@ export function buildFullHtml(content: string, metadata: DocumentMetadata): stri
          <div class="logo-section"><img src="${LOGO_BASE64}" alt="SMEC AI Logo"></div>
          <div class="header-info">
            <div class="header-title">Statement of Advice</div>
-           <div class="header-subtitle">${metadata.version}</div>
          </div>
        </div>`
     : '';

@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import "@aws-amplify/ui-react/styles.css";
 
 export const metadata: Metadata = {
-  title: "PDF Maker",
+  title: "PDF Maker | SMEC AI",
   description: "Convert markdown to professionally styled PDFs with SMEC AI branding",
   icons: {
     icon: "/favicon.ico",
@@ -22,7 +21,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-gray-100 min-h-screen">
+      <body className="antialiased min-h-screen">
         {children}
       </body>
     </html>

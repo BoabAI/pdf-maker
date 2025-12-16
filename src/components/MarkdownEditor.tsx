@@ -23,17 +23,24 @@ This is some **bold** text and *italic* text.
 const example = 'code block';
 ```"
         className="
-          w-full h-96 p-4
-          font-mono text-sm
-          border-2 border-gray-300 rounded-lg
-          focus:border-purple-500 focus:outline-none
+          w-full h-80 p-4
+          font-mono text-sm text-gray-700
+          bg-white
+          border-2 border-violet-200 rounded-xl
+          focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none
           resize-none
-          transition-colors duration-200
+          transition-all duration-200
+          placeholder:text-gray-300
         "
       />
-      <p className="text-sm text-gray-500 mt-2">
-        {content.length} characters
-      </p>
+      <div className="flex justify-between items-center mt-2 px-1">
+        <p className="text-xs text-gray-400">
+          Supports standard markdown syntax
+        </p>
+        <p className="text-xs text-violet-400 font-medium">
+          {content.length.toLocaleString()} characters
+        </p>
+      </div>
     </div>
   );
 }
