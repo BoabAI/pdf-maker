@@ -7,6 +7,8 @@ backend:
         - export BUN_INSTALL="$HOME/.bun"
         - export PATH="$BUN_INSTALL/bin:$PATH"
         - bun install
+        # Install Lambda function dependencies
+        - cd amplify/functions/pdf-processor && bun install && cd ../../..
         - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
 frontend:
   phases:

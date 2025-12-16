@@ -9,8 +9,4 @@ export const pdfProcessor = defineFunction({
   environment: {
     NODE_ENV: 'production',
   },
-  bundling: {
-    // @sparticuz/chromium is provided via Lambda Layer, don't bundle it
-    externalModules: ['@sparticuz/chromium'],
-  },
 });
