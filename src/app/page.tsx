@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Amplify } from 'aws-amplify';
 import { uploadData, downloadData, getUrl } from 'aws-amplify/storage';
-import { getCurrentUser } from 'aws-amplify/auth';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
@@ -95,7 +95,13 @@ export default function Home() {
     setPdfUrl(null);
 
     try {
-      const user = await getCurrentUser();
+      // Get the identity ID (used for S3 path-based access control)
+      const session = await fetchAuthSession();
+      const identityId = session.identityId;
+      if (!identityId) {
+        throw new Error('Unable to get identity ID');
+      }
+
       const timestamp = Date.now();
       const filename = file?.name || `document-${timestamp}.md`;
       const content = inputMode === 'upload' && file
@@ -108,15 +114,15 @@ export default function Home() {
         throw new Error(validationError);
       }
 
-      // Upload markdown to S3
-      const uploadKey = `uploads/${user.userId}/${filename}`;
+      // Upload markdown to S3 (path must match storage access rule: uploads/{entity_id}/*)
+      const uploadKey = `uploads/${identityId}/${filename}`;
       await uploadData({
         path: uploadKey,
         data: new Blob([content], { type: 'text/markdown' }),
       });
 
       // Set status key for polling
-      const statusKeyPath = `status/${user.userId}/${filename.replace('.md', '.json')}`;
+      const statusKeyPath = `status/${identityId}/${filename.replace('.md', '.json')}`;
       setStatusKey(statusKeyPath);
       setConversionState('processing');
 
