@@ -1,7 +1,10 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import type { S3Event, Handler } from 'aws-lambda';
-import chromium from '@sparticuz/chromium';
+import chromium from '@sparticuz/chromium-min';
 import puppeteer from 'puppeteer-core';
+
+// Chromium binary URL matching @sparticuz/chromium-min v131
+const CHROMIUM_PACK_URL = 'https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar';
 import { convertMarkdownToHtml, extractMetadata } from './markdown-converter';
 import { buildFullHtml, buildFooterTemplate, buildPdfFilename } from './styles/smec-ai';
 
@@ -73,11 +76,11 @@ export const handler: Handler<S3Event> = async (event) => {
     const htmlContent = convertMarkdownToHtml(markdownContent);
     const fullHtml = buildFullHtml(htmlContent, metadata);
 
-    // Launch browser with chromium from Lambda Layer
+    // Launch browser with chromium downloaded from GitHub releases
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
       headless: chromium.headless,
     });
 

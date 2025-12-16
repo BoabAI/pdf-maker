@@ -4,8 +4,7 @@ import { storage } from './storage/resource';
 import { pdfProcessor } from './functions/pdf-processor/resource';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
-import { Duration, Stack } from 'aws-cdk-lib';
-import * as lambdaCdk from 'aws-cdk-lib/aws-lambda';
+import { Duration } from 'aws-cdk-lib';
 
 const backend = defineBackend({
   auth,
@@ -20,14 +19,8 @@ const pdfLambda = backend.pdfProcessor.resources.lambda;
 // Cast to Bucket for full access to lifecycle rules
 const bucket = bucketResource as s3.Bucket;
 
-// Use public Chromium Lambda Layer from shelfio
-// https://github.com/shelfio/chrome-aws-lambda-layer
-const region = Stack.of(backend.pdfProcessor.stack).region;
-const chromiumLayerArn = `arn:aws:lambda:${region}:764866452798:layer:chrome-aws-lambda:50`;
-
-// Add the layer to the PDF processor function using CfnFunction
-const cfnFunction = pdfLambda.node.defaultChild as lambdaCdk.CfnFunction;
-cfnFunction.addPropertyOverride('Layers', [chromiumLayerArn]);
+// Note: Chromium is downloaded from GitHub releases at runtime
+// using @sparticuz/chromium-min (no Lambda Layer needed)
 
 // Add S3 trigger for markdown uploads
 bucket.addEventNotification(
