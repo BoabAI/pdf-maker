@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Amplify } from 'aws-amplify';
 import { uploadData, downloadData, getUrl } from 'aws-amplify/storage';
-import { fetchAuthSession } from 'aws-amplify/auth';
-import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
 import MarkdownUploader from '@/components/MarkdownUploader';
@@ -95,13 +93,6 @@ export default function Home() {
     setPdfUrl(null);
 
     try {
-      // Get the identity ID (used for S3 path-based access control)
-      const session = await fetchAuthSession();
-      const identityId = session.identityId;
-      if (!identityId) {
-        throw new Error('Unable to get identity ID');
-      }
-
       const timestamp = Date.now();
       const filename = file?.name || `document-${timestamp}.md`;
       const content = inputMode === 'upload' && file
@@ -114,15 +105,15 @@ export default function Home() {
         throw new Error(validationError);
       }
 
-      // Upload markdown to S3 (path must match storage access rule: uploads/{entity_id}/*)
-      const uploadKey = `uploads/${identityId}/${filename}`;
+      // Upload markdown to S3 (simplified path without identity ID)
+      const uploadKey = `uploads/${filename}`;
       await uploadData({
         path: uploadKey,
         data: new Blob([content], { type: 'text/markdown' }),
       });
 
       // Set status key for polling
-      const statusKeyPath = `status/${identityId}/${filename.replace('.md', '.json')}`;
+      const statusKeyPath = `status/${filename.replace('.md', '.json')}`;
       setStatusKey(statusKeyPath);
       setConversionState('processing');
 
@@ -151,101 +142,91 @@ export default function Home() {
   }
 
   return (
-    <Authenticator>
-      {({ signOut }) => (
-        <main className="container mx-auto max-w-4xl p-6">
-          <header className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-purple-700">
-              PDF Maker
-            </h1>
-            <button
-              onClick={signOut}
-              className="text-sm text-gray-600 hover:text-gray-900 px-4 py-2 rounded border border-gray-300 hover:border-gray-400 transition"
-            >
-              Sign out
-            </button>
-          </header>
+    <main className="container mx-auto max-w-4xl p-6">
+      <header className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-purple-700">
+          PDF Maker
+        </h1>
+      </header>
 
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            {conversionState === 'idle' && (
-              <>
-                {/* Input Mode Toggle */}
-                <div className="flex gap-4 mb-6">
-                  <button
-                    onClick={() => setInputMode('upload')}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      inputMode === 'upload'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Upload File
-                  </button>
-                  <button
-                    onClick={() => setInputMode('paste')}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      inputMode === 'paste'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    Paste Text
-                  </button>
-                </div>
+      <div className="bg-white rounded-lg shadow-lg p-8">
+        {conversionState === 'idle' && (
+          <>
+            {/* Input Mode Toggle */}
+            <div className="flex gap-4 mb-6">
+              <button
+                onClick={() => setInputMode('upload')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  inputMode === 'upload'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Upload File
+              </button>
+              <button
+                onClick={() => setInputMode('paste')}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  inputMode === 'paste'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Paste Text
+              </button>
+            </div>
 
-                {/* Input Components */}
-                {inputMode === 'upload' ? (
-                  <MarkdownUploader file={file} onFileSelect={setFile} />
-                ) : (
-                  <MarkdownEditor
-                    content={markdownContent}
-                    onChange={setMarkdownContent}
-                  />
-                )}
-
-                {/* Convert Button */}
-                <button
-                  onClick={handleConvert}
-                  disabled={
-                    (inputMode === 'upload' && !file) ||
-                    (inputMode === 'paste' && !markdownContent.trim())
-                  }
-                  className="w-full mt-6 py-3 bg-purple-600 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition"
-                >
-                  Convert to PDF
-                </button>
-              </>
-            )}
-
-            {/* Status Display */}
-            {conversionState !== 'idle' && conversionState !== 'complete' && (
-              <ConversionStatus
-                state={conversionState}
-                error={error || undefined}
+            {/* Input Components */}
+            {inputMode === 'upload' ? (
+              <MarkdownUploader file={file} onFileSelect={setFile} />
+            ) : (
+              <MarkdownEditor
+                content={markdownContent}
+                onChange={setMarkdownContent}
               />
             )}
 
-            {/* Download Button */}
-            {conversionState === 'complete' && pdfUrl && (
-              <PdfDownloader url={pdfUrl} onReset={handleReset} />
-            )}
+            {/* Convert Button */}
+            <button
+              onClick={handleConvert}
+              disabled={
+                (inputMode === 'upload' && !file) ||
+                (inputMode === 'paste' && !markdownContent.trim())
+              }
+              className="w-full mt-6 py-3 bg-purple-600 text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition"
+            >
+              Convert to PDF
+            </button>
+          </>
+        )}
 
-            {/* Error Reset */}
-            {conversionState === 'error' && (
-              <button
-                onClick={handleReset}
-                className="w-full mt-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-              >
-                Try Again
-              </button>
-            )}
-          </div>
+        {/* Status Display */}
+        {conversionState !== 'idle' && conversionState !== 'complete' && (
+          <ConversionStatus
+            state={conversionState}
+            error={error || undefined}
+          />
+        )}
 
-          <footer className="mt-8 text-center text-sm text-gray-500">
-            <p>Powered by SMEC AI &bull; Secure Markdown to PDF Conversion</p>
-          </footer>
-        </main>
-      )}
-    </Authenticator>
+        {/* Download Button */}
+        {conversionState === 'complete' && pdfUrl && (
+          <PdfDownloader url={pdfUrl} onReset={handleReset} />
+        )}
+
+        {/* Error Reset */}
+        {conversionState === 'error' && (
+          <button
+            onClick={handleReset}
+            className="w-full mt-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+          >
+            Try Again
+          </button>
+        )}
+      </div>
+
+      <footer className="mt-8 text-center text-sm text-gray-500">
+        <p>Powered by SMEC AI &bull; Secure Markdown to PDF Conversion</p>
+      </footer>
+    </main>
   );
 }

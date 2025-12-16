@@ -4,19 +4,19 @@ import { pdfProcessor } from '../functions/pdf-processor/resource';
 export const storage = defineStorage({
   name: 'pdfMakerStorage',
   access: (allow) => ({
-    // User uploads go here - Lambda needs read access to process files
-    'uploads/{entity_id}/*': [
-      allow.entity('identity').to(['read', 'write', 'delete']),
+    // User uploads - guest access (no auth required)
+    'uploads/*': [
+      allow.guest.to(['read', 'write', 'delete']),
       allow.resource(pdfProcessor).to(['read']),
     ],
-    // Generated PDFs stored here
-    'generated/{entity_id}/*': [
-      allow.entity('identity').to(['read', 'delete']),
+    // Generated PDFs
+    'generated/*': [
+      allow.guest.to(['read', 'delete']),
       allow.resource(pdfProcessor).to(['read', 'write']),
     ],
     // Processing status files
-    'status/{entity_id}/*': [
-      allow.entity('identity').to(['read']),
+    'status/*': [
+      allow.guest.to(['read']),
       allow.resource(pdfProcessor).to(['read', 'write', 'delete']),
     ],
   }),

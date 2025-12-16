@@ -15,13 +15,12 @@ const s3 = new S3Client({});
  */
 async function updateStatus(
   bucket: string,
-  entityId: string,
   filename: string,
   status: 'processing' | 'complete' | 'error',
   pdfKey?: string,
   errorMessage?: string
 ): Promise<void> {
-  const statusKey = `status/${entityId}/${filename.replace('.md', '.json')}`;
+  const statusKey = `status/${filename.replace('.md', '.json')}`;
   const statusData = {
     status,
     updatedAt: new Date().toISOString(),
@@ -49,15 +48,14 @@ export const handler: Handler<S3Event> = async (event) => {
     const bucket = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
 
-    // Extract user ID from path (uploads/{entity_id}/filename.md)
+    // Extract filename from path (uploads/filename.md)
     const pathParts = key.split('/');
-    const entityId = pathParts[1];
     const filename = pathParts[pathParts.length - 1];
 
     console.log(`Processing: ${key}`);
 
     // Update status: processing
-    await updateStatus(bucket, entityId, filename, 'processing');
+    await updateStatus(bucket, filename, 'processing');
 
     // Get markdown from S3
     const getCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -105,7 +103,7 @@ export const handler: Handler<S3Event> = async (event) => {
 
     // Build output filename
     const pdfFilename = buildPdfFilename(metadata, filename);
-    const pdfKey = `generated/${entityId}/${pdfFilename}`;
+    const pdfKey = `generated/${pdfFilename}`;
 
     // Upload PDF to S3
     await s3.send(new PutObjectCommand({
@@ -116,7 +114,7 @@ export const handler: Handler<S3Event> = async (event) => {
     }));
 
     // Update status: complete
-    await updateStatus(bucket, entityId, filename, 'complete', pdfKey);
+    await updateStatus(bucket, filename, 'complete', pdfKey);
 
     console.log(`Successfully generated: ${pdfKey}`);
 
@@ -132,12 +130,10 @@ export const handler: Handler<S3Event> = async (event) => {
     if (event.Records?.[0]) {
       const key = decodeURIComponent(event.Records[0].s3.object.key);
       const pathParts = key.split('/');
-      const entityId = pathParts[1];
       const filename = pathParts[pathParts.length - 1];
 
       await updateStatus(
         event.Records[0].s3.bucket.name,
-        entityId,
         filename,
         'error',
         undefined,
