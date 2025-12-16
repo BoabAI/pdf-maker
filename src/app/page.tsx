@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Amplify } from 'aws-amplify';
 import { uploadData, downloadData, getUrl } from 'aws-amplify/storage';
+import Image from 'next/image';
 
 import MarkdownUploader from '@/components/MarkdownUploader';
 import MarkdownEditor from '@/components/MarkdownEditor';
@@ -14,26 +15,6 @@ type ConversionState = 'idle' | 'uploading' | 'processing' | 'complete' | 'error
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-// Logo SVG Component with pastel colors
-function Logo() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Document base */}
-      <rect x="8" y="4" width="32" height="40" rx="4" fill="#EDE9FE" stroke="#A78BFA" strokeWidth="2"/>
-      {/* Folded corner */}
-      <path d="M32 4V12H40" stroke="#A78BFA" strokeWidth="2" strokeLinecap="round"/>
-      <path d="M32 4L40 12V8C40 5.79086 38.2091 4 36 4H32Z" fill="#DDD6FE"/>
-      {/* Lines representing text */}
-      <rect x="14" y="18" width="20" height="3" rx="1.5" fill="#A78BFA"/>
-      <rect x="14" y="25" width="16" height="3" rx="1.5" fill="#C4B5FD"/>
-      <rect x="14" y="32" width="18" height="3" rx="1.5" fill="#C4B5FD"/>
-      {/* PDF badge */}
-      <circle cx="38" cy="38" r="8" fill="#8B5CF6"/>
-      <text x="38" y="41" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="sans-serif">PDF</text>
-    </svg>
-  );
-}
 
 export default function Home() {
   const [inputMode, setInputMode] = useState<InputMode>('upload');
@@ -154,11 +135,18 @@ export default function Home() {
   return (
     <main className="min-h-screen py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header with Logo */}
+        {/* Header with SMEC Logo */}
         <header className="text-center mb-10">
-          <div className="inline-flex items-center justify-center gap-3 mb-3">
-            <Logo />
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+          <div className="flex flex-col items-center gap-4 mb-3">
+            <Image
+              src="/smec-logo.png"
+              alt="SMEC AI"
+              width={280}
+              height={80}
+              priority
+              className="h-16 w-auto"
+            />
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
               PDF Maker
             </h1>
           </div>
