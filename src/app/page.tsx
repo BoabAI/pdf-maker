@@ -26,12 +26,26 @@ export default function Home() {
   const [statusKey, setStatusKey] = useState<string | null>(null);
   const [isConfigured, setIsConfigured] = useState(false);
 
-  // Configure Amplify on mount
+  // Configure Amplify on mount with guest access enabled
   useEffect(() => {
     async function configureAmplify() {
       try {
         const outputs = await import('../../amplify_outputs.json');
-        Amplify.configure(outputs.default || outputs);
+        const config = outputs.default || outputs;
+
+        // Enable guest access for unauthenticated S3 operations
+        Amplify.configure({
+          ...config,
+          Auth: {
+            Cognito: {
+              ...config.auth,
+              identityPoolId: config.auth?.identity_pool_id,
+              userPoolId: config.auth?.user_pool_id,
+              userPoolClientId: config.auth?.user_pool_client_id,
+              allowGuestAccess: true,
+            },
+          },
+        });
       } catch {
         console.log('Amplify outputs not found - running in development mode');
       }
