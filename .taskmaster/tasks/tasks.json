@@ -1,0 +1,285 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Initialize Amplify Gen 2 Project with Next.js",
+        "description": "Set up the AWS Amplify Gen 2 project with Next.js template, including initial dependencies and project structure configuration.",
+        "details": "Run `npm create amplify@latest -- --template next-app --name pdf-maker` to scaffold the project. Install additional dependencies: `@aws-amplify/ui-react` for UI components. Configure TypeScript settings and establish the project directory structure as specified in the PRD: amplify/ folder for backend resources, src/app/ for Next.js pages, src/components/ for React components, and public/ for static assets. Update package.json with appropriate scripts for development and deployment.",
+        "testStrategy": "Verify project scaffolds correctly by running `npm install` without errors. Confirm TypeScript compiles with `npm run build`. Validate Amplify CLI is properly configured by running `npx ampx --version`.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "in-progress",
+        "subtasks": [],
+        "updatedAt": "2025-12-16T03:38:00.044Z"
+      },
+      {
+        "id": "2",
+        "title": "Configure Cognito Authentication Backend",
+        "description": "Implement AWS Cognito authentication using Amplify Gen 2 defineAuth with email-based login support.",
+        "details": "Create `amplify/auth/resource.ts` with email authentication configuration. Use `defineAuth({ loginWith: { email: true }, userAttributes: { preferredUsername: { required: false, mutable: true } } })`. This enables user registration, login, and session management. Cognito will handle password requirements, email verification, and token refresh automatically.",
+        "testStrategy": "Run `npx ampx sandbox` to deploy auth resources. Test user signup with email, verify email confirmation flow works, test login/logout functionality. Validate JWT tokens are correctly issued by checking browser network requests.",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "3",
+        "title": "Configure S3 Storage with Path-Based Access Control",
+        "description": "Set up Amplify Storage with S3 bucket configuration for user uploads, generated PDFs, and status files with identity-based access control.",
+        "details": "Create `amplify/storage/resource.ts` using defineStorage with name 'pdfMakerStorage'. Configure three path prefixes: 'uploads/{entity_id}/*' for markdown uploads (read/write/delete for identity), 'generated/{entity_id}/*' for PDFs (read/delete for identity, read/write for Lambda), 'status/{entity_id}/*' for processing status (read for identity, read/write/delete for Lambda). This ensures users can only access their own files.",
+        "testStrategy": "Deploy storage with sandbox. Test uploading file to uploads/ path succeeds for authenticated user. Verify cross-user access is denied by attempting to read another user's files. Confirm presigned URLs work for downloads.",
+        "priority": "high",
+        "dependencies": [
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "4",
+        "title": "Create PDF Processor Lambda Function Definition",
+        "description": "Define the Lambda function resource for PDF processing with appropriate memory (2GB), timeout (180s), and Node.js 20 runtime configuration.",
+        "details": "Create `amplify/functions/pdf-processor/resource.ts` using defineFunction with entry './handler.ts', timeoutSeconds: 180, memoryMB: 2048, runtime: 'nodejs20.x'. Set NODE_ENV: 'production' in environment. Create initial `package.json` with dependencies: @aws-sdk/client-s3, @sparticuz/chromium, puppeteer-core, markdown-it, highlight.js. Note: Container image approach is recommended for production but start with standard Lambda for initial development.",
+        "testStrategy": "Verify function definition compiles without TypeScript errors. Deploy to sandbox and confirm Lambda appears in AWS console with correct memory/timeout settings. Test basic invocation returns successfully.",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "5",
+        "title": "Implement Backend Composition with S3 Event Trigger",
+        "description": "Create the main backend.ts file that composes auth, storage, and Lambda function, then adds S3 event notification trigger for .md file uploads.",
+        "details": "Create `amplify/backend.ts` importing auth, storage, and pdfProcessor. Use defineBackend to compose resources. Access bucket via `backend.storage.resources.bucket` and lambda via `backend.pdfProcessor.resources.lambda`. Add S3 event notification using `bucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(lambda), { prefix: 'uploads/', suffix: '.md' })`. Add lifecycle rules: uploads/ expires after 7 days, generated/ expires after 30 days.",
+        "testStrategy": "Deploy with sandbox. Upload a .md file to S3 uploads/ prefix and verify Lambda is triggered (check CloudWatch logs). Confirm lifecycle rules appear in S3 bucket configuration. Test that non-.md files don't trigger the function.",
+        "priority": "high",
+        "dependencies": [
+          "3",
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "6",
+        "title": "Implement Markdown Converter Module",
+        "description": "Port the markdown-to-HTML conversion logic using markdown-it with syntax highlighting via highlight.js.",
+        "details": "Create `amplify/functions/pdf-processor/markdown-converter.ts`. Configure markdown-it with html: true, linkify: true, typographer: true. Implement highlight function that uses hljs.highlight for code blocks with language detection. Export convertMarkdownToHtml(markdown: string): string function. Create extractMetadata function that parses document for title (first H1), version (**Version X.X**), client name, and date. Define DocumentMetadata interface with title, version, clientName, dateStr fields.",
+        "testStrategy": "Write unit tests for convertMarkdownToHtml with sample markdown including headers, lists, code blocks, and tables. Verify syntax highlighting classes are applied to code. Test extractMetadata correctly parses document frontmatter/content.",
+        "priority": "medium",
+        "dependencies": [
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "7",
+        "title": "Create SMEC AI Styles Module",
+        "description": "Implement the SMEC AI CSS styling and HTML template generation for professional PDF output.",
+        "details": "Create `amplify/functions/pdf-processor/styles/smec-ai.ts`. Define SMEC_AI_CSS constant with styles: system fonts, 11pt base size, max-width 750px, purple accent colors (#7c3aed), styled tables with purple headers, proper code block formatting. Create buildFullHtml(content: string, metadata: DocumentMetadata) function that generates complete HTML document with CSS, highlight.js CDN link, optional logo header. Create buildFooterTemplate(metadata) for PDF page footer with version, date, page numbers. Create buildPdfFilename(metadata, originalFilename) for output naming.",
+        "testStrategy": "Generate sample HTML and render in browser to verify styling matches SMEC AI branding. Test table headers are purple, code blocks have proper background, typography is consistent. Verify footer template includes page number placeholders.",
+        "priority": "medium",
+        "dependencies": [
+          "6"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "8",
+        "title": "Prepare Logo Asset as Base64 Module",
+        "description": "Convert the SMEC AI logo to base64 format for embedding in generated PDFs without external dependencies.",
+        "details": "Create `amplify/functions/pdf-processor/assets/logo.ts`. Obtain smec_ai_logo_horizontal.png from public/ folder (user must provide). Convert image to base64 data URI format: 'data:image/png;base64,...'. Export as LOGO_BASE64 constant. If logo is not provided, export empty string and update buildFullHtml to gracefully handle missing logo. Consider adding build script to automate base64 conversion.",
+        "testStrategy": "Verify LOGO_BASE64 exports valid data URI when logo exists. Test buildFullHtml renders logo correctly when present, and omits logo section when empty. Confirm base64 string produces valid image when decoded.",
+        "priority": "low",
+        "dependencies": [
+          "7"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "9",
+        "title": "Implement Lambda Handler with S3 Event Processing",
+        "description": "Create the main Lambda handler that processes S3 events, converts markdown to PDF using Puppeteer, and manages status updates.",
+        "details": "Create `amplify/functions/pdf-processor/handler.ts`. Parse S3 event to extract bucket, key, entityId from path. Implement updateStatus helper to write JSON status files to S3. Flow: 1) Update status to 'processing', 2) Get markdown from S3, 3) Extract metadata, 4) Convert to HTML, 5) Launch Puppeteer with @sparticuz/chromium, 6) Set viewport 1280x1024 at 2x scale, 7) Generate A4 PDF with margins and footer, 8) Upload PDF to generated/{entityId}/, 9) Update status to 'complete' with pdfKey. Handle errors: catch, update status to 'error', rethrow. Always close browser in finally block.",
+        "testStrategy": "Deploy function and test with sample markdown upload. Verify status file updates correctly at each stage. Confirm PDF appears in S3 generated/ path. Test error handling with malformed markdown. Check CloudWatch logs for proper execution flow.",
+        "priority": "high",
+        "dependencies": [
+          "5",
+          "6",
+          "7"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "10",
+        "title": "Build MarkdownUploader Component",
+        "description": "Create the file upload component with drag-and-drop support for .md files.",
+        "details": "Create `src/components/MarkdownUploader.tsx` as client component. Props: file (File | null), onFileSelect (callback). Implement drag-and-drop using onDrop/onDragOver handlers. Validate dropped file ends with .md. Include hidden file input with accept='.md,.markdown'. Style with Tailwind: dashed border, hover effect, purple accent on active. Display file name and size when selected, or prompt text when empty. Handle file selection via both drag-drop and click-to-browse.",
+        "testStrategy": "Test drag-and-drop with .md file shows filename. Verify non-.md files are rejected. Test click-to-browse opens file picker. Confirm file size displays in KB. Verify component is accessible with keyboard navigation.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "11",
+        "title": "Build MarkdownEditor Component",
+        "description": "Create the text input component for pasting markdown content directly.",
+        "details": "Create `src/components/MarkdownEditor.tsx` as client component. Props: content (string), onChange (callback). Render a textarea with monospace font, appropriate placeholder text showing markdown example. Style with Tailwind: border, rounded corners, full-width, height of h-96, proper padding. Include header bar showing 'Paste your markdown content'. Disable resize, add focus outline removal. Make responsive for mobile.",
+        "testStrategy": "Test typing/pasting markdown updates content state. Verify placeholder text displays when empty. Confirm monospace font renders correctly. Test paste from clipboard works. Verify responsive layout on mobile viewport.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "12",
+        "title": "Build ConversionStatus Component",
+        "description": "Create the status display component showing upload progress, processing state, completion, and errors.",
+        "details": "Create `src/components/ConversionStatus.tsx` as client component. Props: state ('uploading' | 'processing' | 'complete' | 'error'), error (optional string). Define messages object mapping states to user-friendly text. Define colors object for state-specific styling (blue for uploading, purple for processing, green for complete, red for error). Render animated spinner for processing state (CSS animation using Tailwind animate-spin). Display appropriate message based on state.",
+        "testStrategy": "Test each state renders correct message and color. Verify spinner animates during processing. Test error state displays custom error message. Confirm component updates reactively when props change.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "13",
+        "title": "Build PdfDownloader Component",
+        "description": "Create the download component with success indicator and reset functionality.",
+        "details": "Create `src/components/PdfDownloader.tsx` as client component. Props: url (string), onReset (callback). Display green checkmark SVG icon for success state. Render download button as anchor tag with href={url}, download attribute, and purple button styling. Include 'Convert Another Document' button that calls onReset. Style with Tailwind: centered layout, proper spacing, hover effects.",
+        "testStrategy": "Test clicking download initiates file download. Verify reset button clears state and returns to input view. Confirm SVG icon renders correctly. Test link opens in same tab with download prompt.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "14",
+        "title": "Implement Main Application Page",
+        "description": "Create the main page.tsx that integrates all components with Amplify authentication, file upload, status polling, and PDF download.",
+        "details": "Create `src/app/page.tsx` as client component. Configure Amplify with outputs. Use Authenticator wrapper for auth flow. Implement state: inputMode, markdownContent, file, conversionState, pdfUrl, error, statusKey. Implement status polling useEffect that checks status file every 2 seconds when processing. Implement handleConvert: get user, upload to S3 with uploadData, set statusKey for polling. Implement handleReset to clear all state. Render: header with sign-out, input mode toggle buttons, conditional MarkdownUploader or MarkdownEditor, convert button, ConversionStatus, PdfDownloader.",
+        "testStrategy": "Test full user flow: sign in, upload markdown, wait for processing, download PDF. Verify status polling works and stops on completion. Test error handling displays error message. Test mode toggle switches between upload and paste. Verify sign-out redirects to login.",
+        "priority": "high",
+        "dependencies": [
+          "2",
+          "3",
+          "10",
+          "11",
+          "12",
+          "13"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "15",
+        "title": "Configure Next.js Layout and Styling",
+        "description": "Set up the root layout with Tailwind CSS, global styles, and Amplify UI theme configuration.",
+        "details": "Update `src/app/layout.tsx` with proper metadata (title: 'PDF Maker', description). Import Tailwind CSS globals and @aws-amplify/ui-react/styles.css. Configure proper body styling with gray background. Add favicon if available. Ensure proper viewport meta tag for responsive design. Configure Tailwind theme.extend if custom colors needed (purple-600, purple-700 for SMEC branding). Update globals.css with any additional global styles.",
+        "testStrategy": "Verify page renders with correct title and meta tags. Confirm Tailwind classes apply correctly. Test responsive design at mobile, tablet, and desktop breakpoints. Verify Amplify UI components are styled correctly.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "16",
+        "title": "Create Amplify Build Configuration",
+        "description": "Configure amplify.yml for CI/CD deployment with proper build phases for frontend and backend.",
+        "details": "Create `amplify.yml` at project root. Configure backend.phases.build with npm ci and npx ampx pipeline-deploy. Configure frontend.phases.preBuild with npm ci, build with npm run build. Set artifacts.baseDirectory to .next, files to '**/*'. Configure cache.paths for .next/cache, .npm, node_modules. This enables automatic deployments when pushing to connected repository.",
+        "testStrategy": "Validate YAML syntax is correct. Test build locally with npm run build succeeds. Deploy to Amplify and verify build logs show correct phase execution. Confirm caching works on subsequent deploys.",
+        "priority": "medium",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "17",
+        "title": "Implement Container Dockerfile for Lambda",
+        "description": "Create Dockerfile for Lambda container image deployment with Chrome dependencies for Puppeteer.",
+        "details": "Create `amplify/functions/pdf-processor/Dockerfile` based on public.ecr.aws/lambda/nodejs:20. Install Chrome dependencies with dnf: atk, cups-libs, gtk3, libXcomposite, alsa-lib, libXcursor, libXdamage, libXext, libXi, libXrandr, libXScrnSaver, libXtst, pango, at-spi2-atk, libXt, xorg-x11-server-Xvfb, nss, mesa-libgbm. Clean up with dnf clean all. Copy package files, run npm ci --only=production, copy function code. Set CMD to handler.handler.",
+        "testStrategy": "Build Docker image locally and verify it builds without errors. Test running container locally with AWS Lambda Runtime Interface Emulator. Verify Puppeteer can launch Chrome inside container. Confirm all dependencies are present.",
+        "priority": "high",
+        "dependencies": [
+          "9"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "18",
+        "title": "Add Input Validation and File Size Limits",
+        "description": "Implement client-side and server-side validation for markdown file uploads including size limits and content validation.",
+        "details": "Frontend: Add MAX_FILE_SIZE constant (10MB recommended). Validate file size before upload in handleConvert. Display error for oversized files. Validate file has .md extension. Lambda: Check content length from S3 object metadata. Validate markdown content is not empty. Add reasonable string length limits. Return descriptive error messages for validation failures. Consider adding markdown syntax validation.",
+        "testStrategy": "Test uploading file > 10MB shows size error. Test uploading non-.md file shows type error. Test empty markdown content shows error. Verify Lambda handles malformed S3 events gracefully. Test error messages are user-friendly.",
+        "priority": "medium",
+        "dependencies": [
+          "9",
+          "14"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "19",
+        "title": "End-to-End Testing and Performance Validation",
+        "description": "Execute comprehensive testing of the complete application flow and validate performance benchmarks.",
+        "details": "Create test markdown files: small (<10KB), medium (100KB), large (>1MB). Test cases per PRD: TC-01 through TC-10. Measure cold start time (target <5s), warm execution (target <30s), memory usage (target <1.5GB). Test concurrent uploads with 10 simultaneous users. Verify PDF file sizes are reasonable (<5MB typical). Test syntax highlighting for JavaScript, Python, TypeScript, SQL. Validate table styling, header/footer rendering, page breaks.",
+        "testStrategy": "Document test results for each TC-XX test case. Record performance metrics from CloudWatch. Create test report showing pass/fail for each criterion. Fix any issues discovered and retest. Verify success criteria from PRD are met.",
+        "priority": "high",
+        "dependencies": [
+          "14",
+          "17"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "20",
+        "title": "Deploy to Production and Configure Monitoring",
+        "description": "Deploy the application to production environment with CloudWatch monitoring and alerting.",
+        "details": "Run npx ampx pipeline-deploy --branch main for production deployment. Set up CloudWatch Alarms for Lambda errors (threshold: >5 errors/5min), Lambda duration (threshold: >120s), S3 storage (threshold: >100GB). Create CloudWatch Dashboard with key metrics: Lambda invocations, duration p50/p95, error rate, S3 object counts. Configure SNS topic for alerts. Document the production URL and share with stakeholders. Verify CORS configuration if custom domain is used.",
+        "testStrategy": "Verify production deployment succeeds without errors. Test production URL loads correctly. Confirm CloudWatch Alarms are active. Trigger test alert by simulating error. Verify dashboard shows real-time metrics. Test PDF generation works in production environment.",
+        "priority": "high",
+        "dependencies": [
+          "16",
+          "19"
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2025-12-16T03:38:00.044Z",
+      "taskCount": 20,
+      "completedCount": 0,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
