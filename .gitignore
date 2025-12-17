@@ -46,6 +46,9 @@ amplifyconfiguration.json
 # Bun
 bun.lockb
 
+# Documents (corporate/client IP)
+documents/
+
 # Editor
 .idea
 .vscode
