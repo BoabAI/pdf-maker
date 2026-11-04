@@ -1,10 +1,11 @@
 import MarkdownIt from 'markdown-it';
 import hljs from 'highlight.js';
+import sanitizeHtml from 'sanitize-html';
 
 /**
  * Escape HTML special characters
  */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -40,10 +41,50 @@ export interface DocumentMetadata {
 }
 
 /**
- * Convert markdown content to styled HTML
+ * Allowlist for the HTML that reaches headless Chromium. Uploaded markdown is
+ * untrusted (raw HTML is enabled in markdown-it), so anything able to run
+ * script, load a remote/local resource or change the document base is removed.
+ */
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    ...sanitizeHtml.defaults.allowedTags,
+    'img', 'del', 's', 'ins', 'sup', 'sub', 'details', 'summary',
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'title'],
+    img: ['src', 'alt', 'title', 'width', 'height'],
+    th: ['style', 'colspan', 'rowspan'],
+    td: ['style', 'colspan', 'rowspan'],
+    ol: ['start'],
+    '*': ['id'],
+  },
+  allowedClasses: {
+    '*': ['hljs', /^hljs-/, /^language-/, 'class_', 'function_'],
+  },
+  // markdown-it emits text-align for table column alignment
+  allowedStyles: {
+    th: { 'text-align': [/^(left|right|center)$/] },
+    td: { 'text-align': [/^(left|right|center)$/] },
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  // Images may only be inline data URIs; remote and file: URLs are dropped
+  allowedSchemesByTag: { img: ['data'] },
+  allowProtocolRelative: false,
+  disallowedTagsMode: 'discard',
+};
+
+/**
+ * Sanitise rendered HTML so it is safe to load in the PDF renderer
+ */
+export function sanitizeRenderedHtml(html: string): string {
+  return sanitizeHtml(html, SANITIZE_OPTIONS);
+}
+
+/**
+ * Convert markdown content to styled, sanitised HTML
  */
 export function convertMarkdownToHtml(markdown: string): string {
-  return md.render(markdown);
+  return sanitizeRenderedHtml(md.render(markdown));
 }
 
 /**

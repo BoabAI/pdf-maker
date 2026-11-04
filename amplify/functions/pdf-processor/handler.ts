@@ -7,6 +7,7 @@ import puppeteer from 'puppeteer-core';
 const CHROMIUM_PACK_URL = 'https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar';
 import { convertMarkdownToHtml, extractMetadata } from './markdown-converter';
 import { buildFullHtml, buildFooterTemplate, buildPdfFilename } from './styles/smec-ai';
+import { renderPdf } from './pdf-renderer';
 
 const s3 = new S3Client({});
 
@@ -82,24 +83,8 @@ export const handler: Handler<S3Event> = async (event) => {
       headless: chromium.headless,
     });
 
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 1024, deviceScaleFactor: 2 });
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-
-    // Generate PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: '<div></div>',
-      footerTemplate: buildFooterTemplate(metadata),
-      margin: {
-        top: '0.5in',
-        right: '0.5in',
-        bottom: '0.75in',
-        left: '0.5in',
-      },
-    });
+    // Render with JavaScript disabled and all non-inline requests blocked
+    const pdfBuffer = await renderPdf(browser, fullHtml, buildFooterTemplate(metadata));
 
     // Build output filename
     const pdfFilename = buildPdfFilename(metadata, filename);
