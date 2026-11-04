@@ -7,6 +7,8 @@ import puppeteer from 'puppeteer-core';
 const CHROMIUM_PACK_URL = 'https://github.com/Sparticuz/chromium/releases/download/v131.0.0/chromium-v131.0.0-pack.tar';
 import { convertMarkdownToHtml, extractMetadata } from './markdown-converter';
 import { buildFullHtml, buildFooterTemplate, buildPdfFilename } from './styles/smec-ai';
+import { renderPdf } from './pdf-renderer';
+import { buildGeneratedKey, buildStatusKey, decodeS3EventKey, parseUploadKey } from './s3-keys';
 
 const s3 = new S3Client({});
 
@@ -15,12 +17,11 @@ const s3 = new S3Client({});
  */
 async function updateStatus(
   bucket: string,
-  filename: string,
+  statusKey: string,
   status: 'processing' | 'complete' | 'error',
   pdfKey?: string,
   errorMessage?: string
 ): Promise<void> {
-  const statusKey = `status/${filename.replace('.md', '.json')}`;
   const statusData = {
     status,
     updatedAt: new Date().toISOString(),
@@ -41,21 +42,29 @@ async function updateStatus(
  */
 export const handler: Handler<S3Event> = async (event) => {
   let browser = null;
+  let statusKey: string | null = null;
+  const record = event.Records?.[0];
 
   try {
-    // Parse S3 event
-    const record = event.Records[0];
+    if (!record) {
+      throw new Error('No S3 record in event');
+    }
     const bucket = record.s3.bucket.name;
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
+    const key = decodeS3EventKey(record.s3.object.key);
 
-    // Extract filename from path (uploads/filename.md)
-    const pathParts = key.split('/');
-    const filename = pathParts[pathParts.length - 1];
+    // Only uploads/<identityId>/<name>.md is processed; outputs go under the same identity
+    const upload = parseUploadKey(key);
+    if (!upload) {
+      console.warn(`Ignoring object with unexpected key layout: ${key.slice(0, 300)}`);
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unexpected key layout' }) };
+    }
+    const { identityId, filename } = upload;
+    statusKey = buildStatusKey(identityId, filename);
 
     console.log(`Processing: ${key}`);
 
     // Update status: processing
-    await updateStatus(bucket, filename, 'processing');
+    await updateStatus(bucket, statusKey, 'processing');
 
     // Get markdown from S3
     const getCommand = new GetObjectCommand({ Bucket: bucket, Key: key });
@@ -82,28 +91,12 @@ export const handler: Handler<S3Event> = async (event) => {
       headless: chromium.headless,
     });
 
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 1024, deviceScaleFactor: 2 });
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-
-    // Generate PDF
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      displayHeaderFooter: true,
-      headerTemplate: '<div></div>',
-      footerTemplate: buildFooterTemplate(metadata),
-      margin: {
-        top: '0.5in',
-        right: '0.5in',
-        bottom: '0.75in',
-        left: '0.5in',
-      },
-    });
+    // Render with JavaScript disabled and all non-inline requests blocked
+    const pdfBuffer = await renderPdf(browser, fullHtml, buildFooterTemplate(metadata));
 
     // Build output filename
     const pdfFilename = buildPdfFilename(metadata, filename);
-    const pdfKey = `generated/${pdfFilename}`;
+    const pdfKey = buildGeneratedKey(identityId, pdfFilename);
 
     // Upload PDF to S3
     await s3.send(new PutObjectCommand({
@@ -114,7 +107,7 @@ export const handler: Handler<S3Event> = async (event) => {
     }));
 
     // Update status: complete
-    await updateStatus(bucket, filename, 'complete', pdfKey);
+    await updateStatus(bucket, statusKey, 'complete', pdfKey);
 
     console.log(`Successfully generated: ${pdfKey}`);
 
@@ -127,14 +120,10 @@ export const handler: Handler<S3Event> = async (event) => {
     console.error('PDF generation failed:', error);
 
     // Update status: error
-    if (event.Records?.[0]) {
-      const key = decodeURIComponent(event.Records[0].s3.object.key);
-      const pathParts = key.split('/');
-      const filename = pathParts[pathParts.length - 1];
-
+    if (record && statusKey) {
       await updateStatus(
-        event.Records[0].s3.bucket.name,
-        filename,
+        record.s3.bucket.name,
+        statusKey,
         'error',
         undefined,
         (error as Error).message
