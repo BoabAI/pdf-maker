@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Amplify } from 'aws-amplify';
 import { uploadData, downloadData, getUrl } from 'aws-amplify/storage';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import Image from 'next/image';
 
 import MarkdownUploader from '@/components/MarkdownUploader';
@@ -112,13 +113,19 @@ export default function Home() {
         throw new Error(validationError);
       }
 
-      const uploadKey = `uploads/${filename}`;
+      // Objects are scoped to this browser's Cognito (guest) identity
+      const { identityId } = await fetchAuthSession();
+      if (!identityId) {
+        throw new Error('Could not establish a session. Please refresh and try again.');
+      }
+
+      const uploadKey = `uploads/${identityId}/${filename}`;
       await uploadData({
         path: uploadKey,
         data: new Blob([content], { type: 'text/markdown' }),
-      });
+      }).result;
 
-      const statusKeyPath = `status/${filename.replace('.md', '.json')}`;
+      const statusKeyPath = `status/${identityId}/${filename.replace(/\.md$/, '')}.json`;
       setStatusKey(statusKeyPath);
       setConversionState('processing');
 

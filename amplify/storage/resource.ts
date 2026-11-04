@@ -1,22 +1,27 @@
 import { defineStorage } from '@aws-amplify/backend';
 import { pdfProcessor } from '../functions/pdf-processor/resource';
 
+/**
+ * Every object lives under its owner's Cognito identity ID ({entity_id}).
+ * Signed-in users are scoped here via allow.entity('identity'). Amplify cannot
+ * scope guest (unauthenticated) identities per entity, so guest access is
+ * granted in backend.ts with the ${cognito-identity.amazonaws.com:sub} policy
+ * variable (see guest-access.ts). The pdfProcessor Lambda can reach every
+ * identity's prefix.
+ */
 export const storage = defineStorage({
   name: 'pdfMakerStorage',
   access: (allow) => ({
-    // Guest (unauthenticated) users can upload and manage their files
-    'uploads/*': [
-      allow.guest.to(['read', 'write', 'delete']),
+    'uploads/{entity_id}/*': [
+      allow.entity('identity').to(['read', 'write', 'delete']),
       allow.resource(pdfProcessor).to(['read']),
     ],
-    // Guest users can download generated PDFs
-    'generated/*': [
-      allow.guest.to(['read', 'delete']),
+    'generated/{entity_id}/*': [
+      allow.entity('identity').to(['read', 'delete']),
       allow.resource(pdfProcessor).to(['read', 'write']),
     ],
-    // Guest users can read status files (for polling)
-    'status/*': [
-      allow.guest.to(['read']),
+    'status/{entity_id}/*': [
+      allow.entity('identity').to(['read']),
       allow.resource(pdfProcessor).to(['read', 'write', 'delete']),
     ],
   }),

@@ -4,7 +4,9 @@ import { storage } from './storage/resource';
 import { pdfProcessor } from './functions/pdf-processor/resource';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Duration } from 'aws-cdk-lib';
+import { buildGuestStorageStatements } from './storage/guest-access';
 
 const backend = defineBackend({
   auth,
@@ -18,6 +20,14 @@ const pdfLambda = backend.pdfProcessor.resources.lambda;
 
 // Cast to Bucket for full access to lifecycle rules
 const bucket = bucketResource as s3.Bucket;
+
+// Guest (unauthenticated) users may only touch objects under their own
+// identity ID; Amplify's allow.guest cannot express per-identity scoping.
+backend.auth.resources.unauthenticatedUserIamRole.attachInlinePolicy(
+  new iam.Policy(backend.storage.stack, 'GuestOwnObjectsPolicy', {
+    statements: buildGuestStorageStatements(bucket.bucketArn),
+  })
+);
 
 // Note: Chromium is downloaded from GitHub releases at runtime
 // using @sparticuz/chromium-min (no Lambda Layer needed)
